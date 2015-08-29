@@ -1,0 +1,299 @@
+/*
+ * class_define.h
+ *
+ *  Created on: Apr 20, 2015
+ *      Author: yh7483
+ */
+
+#ifndef CLASS_DEFINE_H_
+#define CLASS_DEFINE_H_
+
+int row_counter = 0;
+int row_num;
+int column_num;
+int x_step;
+int y_step;
+int x_length;
+int y_length;
+
+int component_num;
+int idnum;
+int pin_num;
+int net_num;
+int unit_distance_micro;
+/******************************************************************************/
+
+
+//const double x_displacement = 20 * 100 / 10;////////////////displacement for b19
+//const double y_displacement = 200 * 100 / 200;
+//const double x_displacement = 10 * 100 / 10;////////////////displacement for vga
+//const double y_displacement = 200 * 100 / 200;
+//const double x_displacement = 30 * 100 / 10;////////////////displacement for leon3mp
+//const double y_displacement = 300 * 100 / 200;
+//const double x_displacement = 40 * 100 / 10;////////////////displacement for leon2
+//const double y_displacement = 400 * 100 / 200;
+//const double x_displacement = 30 * 100 / 10;////////////////displacement for mgc_edit
+//const double y_displacement = 200 * 100 / 200;
+//const double x_displacement = 30 * 100 / 10;////////////////displacement for mgc_matrix
+//const double y_displacement = 200 * 100 / 200;
+const double x_displacement = 50 * 100 / 10;////////////////displacement for mgc_matrix
+const double y_displacement = 400 * 100 / 200;
+
+const double wt1 = 0;////////////////////////////////get target: wt2 much higher than wt1
+const double wt2 = 0;
+
+
+const int good_num = 1;////////////////////////////good number in vector<point>
+const int limit_num = 1000;
+
+
+
+
+/******************************************************************************/
+
+
+
+
+#include <iostream>
+#include <list>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <cmath>
+//#include <map>
+#include "map_change_key"
+#include <limits.h>
+#include <set>
+#include <iterator>
+#include <fstream>
+#include <stdlib.h>
+#include <algorithm>
+#include <float.h>
+#include <time.h>
+#include <stdlib.h>
+
+using namespace std;
+
+class cluster;
+class net;
+
+class cell{
+public:
+    string cell_name;
+    int x_pos;
+    int y_pos;
+    int width;
+    double width_d;
+    int height;
+    double height_d;
+    bool fixed;		//1 - fixed
+    bool direction;	//1 - input; 0 - output;    just make sense to pin
+    cluster* ptr_cluster;
+    list<net*> list_net;
+    int x_pos_origin;
+    int y_pos_origin;
+    int x_pos_old;
+    int y_pos_old;
+    bool is_pin;
+    
+    cell(string cell_name, int x_pos, int y_pos, int width, double width_d, int height, double height_d, bool fixed, bool direction, bool is_pin): cell_name(cell_name), x_pos(x_pos), y_pos(y_pos), width(width), width_d(width_d), height(height), height_d(height_d), fixed(fixed), direction(direction), x_pos_origin(x_pos), y_pos_origin(y_pos), x_pos_old(x_pos), y_pos_old(y_pos), is_pin(is_pin){};
+    
+    bool check_displacement(){
+        bool x_check=abs(x_pos - x_pos_origin) <= x_displacement;
+        bool y_check=abs(y_pos - y_pos_origin) <= y_displacement;
+        return (x_check) && (y_check);
+    }
+    void reverse(void){
+        x_pos=x_pos_old;
+        y_pos=y_pos_old;
+    }
+    void uniform(void){
+        x_pos_old=x_pos;
+        y_pos_old=y_pos;
+    }
+    
+};
+
+class point{
+public:
+    int x;
+    int y;
+    int w2w1;
+    point(int x, int y): x(x), y(y){};
+};
+
+std::ostream& operator<<(ostream& out, point xx){
+    out<<"("<<xx.x<<" , "<<xx.y<<")"<<endl;
+    return out;
+}
+
+
+class net{
+public:
+    string net_name;
+    list<cell*> list_cell;
+    net(string net_name): net_name(net_name){};
+    void reverse(void){
+        for(auto c:list_cell){
+            c->reverse();
+        }
+    }
+    void uniform(void){
+        for(auto c:list_cell){
+            c->uniform();
+        }
+    }
+
+	double get_hpwl_now(){
+		double x_pos_min = DBL_MAX;
+		double x_pos_max = 0;
+		double y_pos_min = DBL_MAX;
+		double y_pos_max = 0;
+		for(auto ptr = list_cell.begin(); ptr != list_cell.end(); ++ptr){
+        	double x_center = (*ptr)->x_pos * x_step + (*ptr)->width * x_step / 2.0;
+        	double y_center = (*ptr)->y_pos * y_step + (*ptr)->height * y_step / 2.0;;
+
+			if( x_center > x_pos_max )	x_pos_max = x_center;
+			if( x_center < x_pos_min )	x_pos_min = x_center;
+			if( y_center > y_pos_max )	y_pos_max = y_center;
+			if( y_center < y_pos_min )	y_pos_min = y_center;
+		}
+		return (x_pos_max - x_pos_min)  + (y_pos_max - y_pos_min) ;
+	}
+
+    double get_hpwl_old(){
+		double x_pos_min = DBL_MAX;
+		double x_pos_max = 0;
+		double y_pos_min = DBL_MAX;
+		double y_pos_max = 0;
+		for(auto ptr = list_cell.begin(); ptr != list_cell.end(); ++ptr){
+        	double x_center = (*ptr)->x_pos_old * x_step + (*ptr)->width * x_step / 2.0;
+        	double y_center = (*ptr)->y_pos_old * y_step + (*ptr)->height * y_step / 2.0;;
+
+			if( x_center > x_pos_max )	x_pos_max = x_center;
+			if( x_center < x_pos_min )	x_pos_min = x_center;
+			if( y_center > y_pos_max )	y_pos_max = y_center;
+			if( y_center < y_pos_min )	y_pos_min = y_center;
+		}
+		return (x_pos_max - x_pos_min)  + (y_pos_max - y_pos_min) ;
+    }
+    
+    void bounding_exclude(cell* ptr_cell, int& xl, int& xr, int& yl, int& yh){
+        xl = INT_MAX;
+        xr = 0;
+        yl = INT_MAX;
+        yh = 0;
+        for(auto ptr = list_cell.begin(); ptr != list_cell.end(); ++ptr){
+        	int x_cen = (*ptr)->x_pos + (*ptr)->width / 2;
+        	int y_cen = (*ptr)->y_pos + (*ptr)->height / 2;
+
+
+            if(ptr_cell != (*ptr)){
+                if( x_cen > xr )	xr = x_cen;
+                if( x_cen < xl )	xl = x_cen;
+                if( y_cen > yh )	yh = y_cen;
+                if( y_cen < yl )	yl = y_cen;
+            }
+        }
+        xr -= ptr_cell->width / 2;
+        xl += ptr_cell->width / 2;
+        yl -= ptr_cell->height / 2;
+        yh += ptr_cell->height / 2;
+    }
+    
+    
+
+    /*
+    void bounding_exclude(cell* ptr_cell, int& xl, int& xr, int& yl, int& yh){
+        xl = INT_MAX;
+        xr = 0;
+        yl = INT_MAX;
+        yh = 0;
+        for(auto ptr = list_cell.begin(); ptr != list_cell.end(); ++ptr){
+            if(ptr_cell != (*ptr)){
+                if( (*ptr)->x_pos > xr )	xr = (*ptr)->x_pos;
+                if( (*ptr)->x_pos < xl )	xl = (*ptr)->x_pos;
+                if( (*ptr)->y_pos > yh )	yh = (*ptr)->y_pos;
+                if( (*ptr)->y_pos < yl )	yl = (*ptr)->y_pos;
+            }
+        }
+    }
+    */
+
+};
+
+
+
+class cluster{
+public:
+    int width;  //width
+    int e;      //weight
+    int q;
+    int x1;//the left most position of cluster
+    bool fixed;
+    bool abandoned;
+    list<cell*> celllist;
+    int myid;
+    int y_pos;
+    
+    cluster(void):width(0),e(0),y_pos(-1),q(0),x1(0),myid(idnum),fixed(false),abandoned(false),prev(nullptr),next(nullptr){
+        if(idnum==101307)
+            cout<<""<<endl;
+        ++idnum;
+    }
+    void reverse(void){
+        for(auto cit:celllist){
+            cit->reverse();
+        }
+    }
+    void uniform(void){
+        for(auto cit:celllist){
+            cit->uniform();
+        }
+    }
+    
+    cluster(cluster& rhs):width(rhs.width),e(rhs.e),q(rhs.q),x1(rhs.x1),myid(idnum),fixed(false),abandoned(false),prev(rhs.prev),next(rhs.next),celllist(rhs.celllist),y_pos(rhs.y_pos){
+        if(idnum==101307)
+            cout<<""<<endl;
+        ++idnum;
+    }
+    
+    bool update_cell(void){
+        int w=0;
+        for(auto it:celllist){
+            if(it!=nullptr){
+                it->x_pos=x1+w;
+                it->y_pos=y_pos;
+                w+=it->width;
+                if(!it->check_displacement()) return false;
+            }
+        }
+        return true;
+    }
+    
+    cluster* prev;
+    cluster* next;
+    
+};
+
+/*
+class gate_info{
+public:
+	double width;
+	double height;
+	gate_info(double width_t, double height_t): width(width_t), height(height_t){};
+};
+*/
+
+
+
+/***************************************************************************************/
+vector<map<int,cell*>> subrow;
+
+cell* vec_cell;
+int vec_cell_counter = 0;
+net* vec_net;
+int vec_net_counter = 0;
+
+
+#endif /* CLASS_DEFINE_H_ */
